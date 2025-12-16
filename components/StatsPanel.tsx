@@ -53,6 +53,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ stats, generation, bestD
                   contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
                   itemStyle={{ color: '#e2e8f0' }}
                   labelStyle={{ display: 'none' }}
+                  formatter={(value: number) => [value.toFixed(2), 'Max Fitness']}
               />
               <Area 
                   type="monotone" 
@@ -92,7 +93,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ stats, generation, bestD
                   contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
                   itemStyle={{ color: '#fca5a5' }}
                   labelStyle={{ display: 'none' }}
-                  formatter={(value: number) => [value.toFixed(0), 'Loss']}
+                  formatter={(value: number) => [value.toFixed(2), 'Avg Loss']}
               />
               <Area 
                   type="monotone" 

@@ -254,10 +254,10 @@ export const useSimulation = () => {
 
       setStats(prev => [...prev, {
           generation: generationRef.current,
-          maxFitness: Math.floor(maxFit),
-          avgFitness: Math.floor(avgFit),
-          avgLoss: Math.floor(avgLoss),
-          bestDistance: Math.floor(bestCat.distanceTraveled), 
+          maxFitness: Number(maxFit.toFixed(2)),
+          avgFitness: Number(avgFit.toFixed(2)),
+          avgLoss: Number(avgLoss.toFixed(2)),
+          bestDistance: Number(bestCat.distanceTraveled.toFixed(2)), 
           bestGenomeWeights: Array.from(bestCat.brain.weights) 
       }]);
       

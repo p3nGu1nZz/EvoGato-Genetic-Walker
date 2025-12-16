@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Play, Pause, RotateCcw, Settings, Save, Upload, BookOpen, ZoomIn, ZoomOut, Activity, Trophy, Dna, Sliders } from 'lucide-react';
+import { Play, Pause, RotateCcw, Save, Upload, BookOpen, ZoomIn, ZoomOut, Activity, Trophy, Dna, Sliders } from 'lucide-react';
 
 interface ControlBarProps {
   isPlaying: boolean;
@@ -24,6 +24,16 @@ interface ControlBarProps {
   toggleResearch: () => void;
 }
 
+const ToggleButton = ({ active, onClick, icon: Icon, title }: { active: boolean, onClick: () => void, icon: any, title: string }) => (
+    <button 
+      onClick={onClick} 
+      className={`p-2 rounded-full transition-all duration-200 ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+      title={title}
+    >
+      <Icon size={16} />
+    </button>
+);
+
 export const ControlBar: React.FC<ControlBarProps> = ({ 
     isPlaying, onTogglePlay, onReset, speed, onSpeedChange, 
     onSave, onLoad, onZoom,
@@ -40,16 +50,6 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         onLoad(e.target.files[0]);
     }
   };
-
-  const ToggleButton = ({ active, onClick, icon: Icon, title }: { active: boolean, onClick: () => void, icon: any, title: string }) => (
-      <button 
-        onClick={onClick} 
-        className={`p-2 rounded-full transition-all duration-200 ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-        title={title}
-      >
-        <Icon size={16} />
-      </button>
-  );
 
   return (
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">

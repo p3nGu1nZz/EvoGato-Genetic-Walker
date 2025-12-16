@@ -12,10 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Electron build output
-build
-app/dist
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
