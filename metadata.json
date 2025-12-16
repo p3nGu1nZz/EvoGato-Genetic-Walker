@@ -1,0 +1,5 @@
+{
+  "name": "EvoGato: Genetic Walker",
+  "description": "A 2D physics simulation of quadrupeds learning to walk over dynamic terrain using an evolutionary neural network algorithm.",
+  "requestFramePermissions": []
+}
