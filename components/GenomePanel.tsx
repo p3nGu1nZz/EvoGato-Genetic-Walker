@@ -24,11 +24,9 @@ export const GenomePanel: React.FC<GenomePanelProps> = ({ population, selectedId
     
     if (w >= 0) {
         // Positive: Rose/Red spectrum
-        // Hue 340, Saturation 90%, Lightness scales 15% -> 75%
         return `hsl(340, 90%, ${15 + intensity * 60}%)`;
     } else {
         // Negative: Cyan/Blue spectrum
-        // Hue 200, Saturation 90%, Lightness scales 15% -> 75%
         return `hsl(200, 90%, ${15 + intensity * 60}%)`;
     }
   };
@@ -89,9 +87,9 @@ export const GenomePanel: React.FC<GenomePanelProps> = ({ population, selectedId
 
       {targetGenome && (
         <>
-            {/* Show only first 64 weights for layout sanity */}
-            <div className="grid grid-cols-8 gap-1 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50">
-                {targetGenome.weights.slice(0, 64).map((w, i) => (
+            {/* 10x10 Grid for 100 weights */}
+            <div className="grid grid-cols-10 gap-px p-2 bg-slate-950/50 rounded-lg border border-slate-800/50">
+                {targetGenome.weights.slice(0, 100).map((w, i) => (
                     <div 
                         key={i} 
                         onMouseEnter={() => setHoveredWeight({index: i, value: w})}

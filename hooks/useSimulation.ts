@@ -15,9 +15,10 @@ export const DEFAULT_CONFIG: SimulationConfig = {
   elitsmCount: 2
 };
 
-// Deep Network Config: 3 Hidden Layers (14 -> 20 -> 16 -> 12 -> 9)
+// Deep Network Config: 3 Hidden Layers 
+// Input expanded to 17 (14 sensors + 3 raycasts)
 const NN_CONFIG: NeuralNetworkConfig = {
-  inputNodes: 14, 
+  inputNodes: 17, 
   hiddenLayers: [20, 16, 12],
   outputNodes: 9, 
 };
@@ -30,6 +31,7 @@ const COLORS = [
 
 // Optimizations
 const INV_PI = 1 / Math.PI;
+const RAD_23 = 23 * (Math.PI / 180); // approx 0.4 radians
 
 type AppState = 'START' | 'RUNNING' | 'TRANSITION' | 'PAUSED';
 
@@ -38,10 +40,13 @@ interface CatAgent {
     brain: SimpleNeuralNetwork;
     fitness: number;
     penalty: number; 
+    visionScore: number;
     active: boolean; 
     hasTouchedGroundBody: boolean; 
     prevVelocity: number; 
-    distanceTraveled: number; 
+    distanceTraveled: number;
+    // Vision Data for Rendering
+    sightLines: { x1: number, y1: number, x2: number, y2: number, hit: boolean }[];
 }
 
 export const useSimulation = () => {
@@ -188,10 +193,12 @@ export const useSimulation = () => {
             brain, 
             fitness: 0, 
             penalty: 0,
+            visionScore: 0,
             active: true, 
             hasTouchedGroundBody: false,
             prevVelocity: 0,
-            distanceTraveled: 0
+            distanceTraveled: 0,
+            sightLines: []
         };
 
         // Populate Collision Map for fast lookup
@@ -298,6 +305,10 @@ export const useSimulation = () => {
     const TIMEOUT_CAP = 200; 
     const inputs = inputBufferRef.current; 
     const currentConfig = configRef.current;
+    
+    // Raycasting Config
+    const RAY_LENGTH = 200;
+    const RAY_ANGLES = [0, -RAD_23, RAD_23]; // Forward, Up, Down
 
     for (let s = 0; s < speedRef.current; s++) {
         catsRef.current.forEach(c => c.hasTouchedGroundBody = false);
@@ -317,7 +328,7 @@ export const useSimulation = () => {
             const tb = cat.entity.torsoBack;
             const spineAngle = tf.angle - tb.angle;
             
-            // Optimization: Use INV_PI and precomputed division
+            // Basic Proprioception
             inputs[0] = tf.angle * INV_PI;
             inputs[1] = tb.angle * INV_PI;
             inputs[2] = spineAngle * INV_PI;
@@ -330,6 +341,52 @@ export const useSimulation = () => {
                 const leg = cat.entity.legs[L];
                 inputs[bufIdx++] = (leg.upper.angle - leg.jointHip.bodyA.angle) * INV_PI;
                 inputs[bufIdx++] = (leg.lower.angle - leg.upper.angle) * INV_PI;
+            }
+
+            // --- Vision (Raycasting) ---
+            cat.sightLines = []; // Reset visualization
+            const headPos = cat.entity.head.position;
+            const headAngle = cat.entity.head.angle;
+
+            // Reward/Penalty for looking forward/backward
+            // Forward is +X, so we check cos(angle). 
+            // cos(0) = 1 (Looking Right/Forward), cos(PI) = -1 (Looking Left/Backward)
+            // Accumulate score
+            const gazeDirection = Math.cos(headAngle);
+            cat.visionScore += gazeDirection * 0.05; 
+
+            for(let r=0; r<3; r++) {
+                const rayAngle = headAngle + RAY_ANGLES[r];
+                const endPoint = {
+                    x: headPos.x + Math.cos(rayAngle) * RAY_LENGTH,
+                    y: headPos.y + Math.sin(rayAngle) * RAY_LENGTH
+                };
+
+                const collisions = Matter.Query.ray(terrainRef.current, headPos, endPoint);
+                let minDist = RAY_LENGTH;
+                
+                if (collisions.length > 0) {
+                    // Find closest collision
+                    for(let c=0; c<collisions.length; c++) {
+                        const col = collisions[c];
+                        // Calculate distance squared to avoid sqrt inside loop if possible, but for ray we need linear dist
+                        const d = Math.sqrt(Math.pow(col.bodyA.position.x - headPos.x, 2) + Math.pow(col.bodyA.position.y - headPos.y, 2)) - 20; // Approx surface
+                        if (d < minDist) minDist = d;
+                    }
+                }
+                
+                // Store Visual
+                // If collision, line ends at collision (approximated by min dist for visual simplicity)
+                cat.sightLines.push({
+                   x1: headPos.x,
+                   y1: headPos.y,
+                   x2: headPos.x + Math.cos(rayAngle) * minDist,
+                   y2: headPos.y + Math.sin(rayAngle) * minDist,
+                   hit: minDist < RAY_LENGTH
+                });
+
+                // Normalize Input (0 = far, 1 = close)
+                inputs[bufIdx++] = 1.0 - (minDist / RAY_LENGTH);
             }
 
             // --- Predict (Deep Network) ---
@@ -372,7 +429,8 @@ export const useSimulation = () => {
             const motionReward = currentVelocity > 0.5 ? currentVelocity * 0.5 : 0;
             cat.prevVelocity = currentVelocity;
             
-            let rawFitness = cat.distanceTraveled + consistencyReward + motionReward - (cat.penalty * 0.1);
+            // Add Vision Score to Fitness
+            let rawFitness = cat.distanceTraveled + cat.visionScore + consistencyReward + motionReward - (cat.penalty * 0.1);
             rawFitness += 0.1; // Living reward
             cat.fitness = rawFitness > 0 ? rawFitness : 0;
         }

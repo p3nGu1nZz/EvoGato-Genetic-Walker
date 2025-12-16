@@ -33,11 +33,12 @@ export const renderScene = ({ ctx, width, height, engine, terrain, cats, selecte
 
     ctx.save();
     
-    // Camera Transform
+    // Camera Transform (Vertical + Horizontal Tracking)
     if (focusCat) {
         ctx.scale(zoom, zoom);
         const camX = (width / (2 * zoom)) - focusCat.entity.torsoFront.position.x;
-        const camY = (height / (2 * zoom)) - 450; 
+        // Dynamic Vertical Tracking: Keep cat vertically centered
+        const camY = (height / (2 * zoom)) - focusCat.entity.torsoFront.position.y; 
         ctx.translate(camX, camY);
     }
 
@@ -55,9 +56,6 @@ export const renderScene = ({ ctx, width, height, engine, terrain, cats, selecte
     });
 
     // Render Cats
-    // Optimization: Avoid creating new arrays and sorting every frame.
-    // Instead, iterate twice or render focus cat last.
-    
     const l = cats.length;
     for (let i = 0; i < l; i++) {
         const cat = cats[i];
@@ -73,15 +71,33 @@ export const renderScene = ({ ctx, width, height, engine, terrain, cats, selecte
     ctx.restore();
 };
 
-// Extracted for optimization and clarity
 const renderCat = (ctx: CanvasRenderingContext2D, cat: any, isSelected: boolean, hasExplicitSelection: boolean) => {
     const alpha = isSelected ? 1 : (hasExplicitSelection ? 0.2 : 0.5);
     const palette = cat.entity.palette;
 
+    // Draw Sight Rays (if active)
+    if (isSelected && cat.sightLines) {
+        cat.sightLines.forEach((line: any) => {
+            ctx.beginPath();
+            ctx.moveTo(line.x1, line.y1);
+            ctx.lineTo(line.x2, line.y2);
+            ctx.lineWidth = 1;
+            // Green if "seeing" (hit something close), Red/Transparent if far
+            ctx.strokeStyle = line.hit ? 'rgba(52, 211, 153, 0.6)' : 'rgba(248, 113, 113, 0.2)';
+            ctx.stroke();
+            
+            if (line.hit) {
+                ctx.beginPath();
+                ctx.arc(line.x2, line.y2, 3, 0, Math.PI*2);
+                ctx.fillStyle = '#34d399';
+                ctx.fill();
+            }
+        });
+    }
+
     cat.entity.tail.forEach((seg: Matter.Body) => drawBody(ctx, seg, palette.tail, alpha));
     
     // Draw Legs (Back Visuals first)
-    // 1 and 3 are 'back' in visual depth (FL, BL in creation order: FR, FL, BR, BL)
     cat.entity.legs.forEach((leg: any, idx: number) => {
          if (idx % 2 !== 0) {
              drawBody(ctx, leg.upper, palette.legDark, alpha);
@@ -114,17 +130,14 @@ const renderCat = (ctx: CanvasRenderingContext2D, cat: any, isSelected: boolean,
     ctx.fill();
 
     // Draw Ears
-    const headR = 12.6; // approx 18 * 0.7
+    const headR = 12.6; 
     const angle = head.angle;
-    
-    // Small optimization: avoid closures creation inside render loop if possible, 
-    // but inline definition is cleaner for this specific complex drawing.
     const cx = head.position.x;
     const cy = head.position.y;
     
     const drawEar = (angleOffset: number) => {
          ctx.beginPath();
-         const baseAngle = angle - 1.57 + angleOffset; // -PI/2 approx -1.57
+         const baseAngle = angle - 1.57 + angleOffset; 
          const bx = cx + Math.cos(baseAngle) * headR;
          const by = cy + Math.sin(baseAngle) * headR;
          
@@ -163,7 +176,7 @@ const renderCat = (ctx: CanvasRenderingContext2D, cat: any, isSelected: boolean,
         const ey = cy + uy * forwardOffset + vy * sideOffset;
 
         ctx.beginPath();
-        ctx.arc(ex, ey, eyeR, 0, 6.28); // 2*PI
+        ctx.arc(ex, ey, eyeR, 0, 6.28); 
         ctx.fillStyle = '#ffffff';
         ctx.fill();
 

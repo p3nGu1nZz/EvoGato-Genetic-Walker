@@ -48,7 +48,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ stats, generation, bestD
                   </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <YAxis hide domain={['auto', 'auto']} />
+              <YAxis hide domain={[0, 'dataMax + 10']} />
               <Tooltip 
                   contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
                   itemStyle={{ color: '#e2e8f0' }}
@@ -88,7 +88,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ stats, generation, bestD
                   </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <YAxis hide domain={['auto', 'auto']} />
+              <YAxis hide domain={[0, 'auto']} />
               <Tooltip 
                   contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
                   itemStyle={{ color: '#fca5a5' }}
