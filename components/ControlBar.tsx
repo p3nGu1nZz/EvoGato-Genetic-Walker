@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Play, Pause, RotateCcw, Settings, Save, Upload, BookOpen } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings, Save, Upload, BookOpen, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface ControlBarProps {
   isPlaying: boolean;
@@ -11,11 +11,12 @@ interface ControlBarProps {
   onOpenResearch: () => void;
   onSave: () => void;
   onLoad: (file: File) => void;
+  onZoom: (delta: number) => void;
 }
 
 export const ControlBar: React.FC<ControlBarProps> = ({ 
     isPlaying, onTogglePlay, onReset, speed, onSpeedChange, 
-    onOpenSettings, onOpenResearch, onSave, onLoad 
+    onOpenSettings, onOpenResearch, onSave, onLoad, onZoom
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -37,6 +38,15 @@ export const ControlBar: React.FC<ControlBarProps> = ({
       <div className="h-8 w-px bg-slate-700 mx-1"></div>
 
       <div className="flex items-center gap-1">
+          <button onClick={() => onZoom(0.1)} className="p-2 text-slate-400 hover:text-white transition-colors hover:bg-slate-800 rounded-full" title="Zoom In">
+            <ZoomIn size={18} />
+          </button>
+           <button onClick={() => onZoom(-0.1)} className="p-2 text-slate-400 hover:text-white transition-colors hover:bg-slate-800 rounded-full" title="Zoom Out">
+            <ZoomOut size={18} />
+          </button>
+
+          <div className="h-4 w-px bg-slate-700 mx-1"></div>
+
           <button onClick={onReset} className="p-2 text-slate-400 hover:text-white transition-colors hover:bg-slate-800 rounded-full" title="Reset Population">
             <RotateCcw size={18} />
           </button>

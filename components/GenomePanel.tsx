@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Minus, Maximize2, Grid3X3, MonitorPlay } from 'lucide-react';
 import { Genome, GenerationStats } from '../types';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, YAxis, ResponsiveContainer } from 'recharts';
 
 interface GenomePanelProps {
   population: Genome[];
@@ -14,7 +14,6 @@ export const GenomePanel: React.FC<GenomePanelProps> = ({ population, selectedId
   const [expanded, setExpanded] = useState(false);
   const [hoveredWeight, setHoveredWeight] = useState<{index: number, value: number} | null>(null);
 
-  // Default to leader (first in sorted list usually, or selected)
   const targetGenome = selectedId 
     ? population.find(g => g.id === selectedId) || population[0] 
     : population[0];
@@ -26,7 +25,6 @@ export const GenomePanel: React.FC<GenomePanelProps> = ({ population, selectedId
     return `rgb(${r}, 0, ${b})`;
   };
 
-  // Construct chart data for the hovered weight index
   const getWeightHistoryData = (idx: number) => {
       return history.map(stat => ({
           gen: stat.generation,
@@ -45,7 +43,7 @@ export const GenomePanel: React.FC<GenomePanelProps> = ({ population, selectedId
     );
   }
 
-  // Expanded View: 4x3 Grid (Using grid-cols-4 for 12 items = 3 rows)
+  // Expanded View
   if (expanded) {
       return (
         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-8 animate-in zoom-in-95 duration-200">
@@ -94,20 +92,24 @@ export const GenomePanel: React.FC<GenomePanelProps> = ({ population, selectedId
   return (
     <div className="absolute bottom-24 right-4 bg-slate-900/80 backdrop-blur-md p-4 rounded-xl border border-slate-700 w-64 shadow-2xl z-10 flex flex-col gap-2 animate-in slide-in-from-right fade-in duration-500">
       
-      {/* Weight History Tooltip/Overlay */}
+      {/* Weight History Tooltip/Overlay - fixed z-index logic */}
       {hoveredWeight && (
-          <div className="absolute -left-52 top-0 bg-slate-900 border border-slate-700 p-2 rounded-lg shadow-xl w-48 z-20 animate-in fade-in zoom-in-95 duration-200">
-              <div className="text-[10px] text-slate-400 mb-1 flex justify-between">
-                  <span>Weight #{hoveredWeight.index}</span>
+          <div className="absolute bottom-full left-0 mb-2 bg-slate-950 border border-slate-700 p-3 rounded-lg shadow-2xl w-56 z-50 animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
+              <div className="text-[10px] text-slate-400 mb-1 flex justify-between font-bold">
+                  <span>Weight Index #{hoveredWeight.index}</span>
                   <span className="font-mono text-white">{hoveredWeight.value.toFixed(4)}</span>
               </div>
-              <div className="h-20 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={getWeightHistoryData(hoveredWeight.index)}>
-                        <Area type="monotone" dataKey="val" stroke="#818cf8" fill="#3730a3" strokeWidth={1} />
-                        <YAxis hide domain={['dataMin', 'dataMax']} />
-                    </AreaChart>
-                </ResponsiveContainer>
+              <div className="h-20 w-full bg-slate-900/50 rounded overflow-hidden">
+                {history.length > 1 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={getWeightHistoryData(hoveredWeight.index)}>
+                            <Area type="monotone" dataKey="val" stroke="#818cf8" fill="#3730a3" strokeWidth={2} isAnimationActive={false} />
+                            <YAxis hide domain={['auto', 'auto']} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-600">Gathering History...</div>
+                )}
               </div>
           </div>
       )}
@@ -129,13 +131,14 @@ export const GenomePanel: React.FC<GenomePanelProps> = ({ population, selectedId
 
       {targetGenome && (
         <>
+            {/* Show only first 64 weights for layout sanity */}
             <div className="grid grid-cols-8 gap-1 p-2 bg-slate-950/50 rounded-lg">
                 {targetGenome.weights.slice(0, 64).map((w, i) => (
                     <div 
                         key={i} 
                         onMouseEnter={() => setHoveredWeight({index: i, value: w})}
                         onMouseLeave={() => setHoveredWeight(null)}
-                        className="w-full pt-[100%] rounded-sm relative cursor-crosshair hover:ring-1 ring-white/50 z-10"
+                        className="w-full pt-[100%] rounded-sm relative cursor-crosshair hover:ring-2 ring-white z-10 transition-shadow"
                         style={{ backgroundColor: getWeightColor(w) }}
                     >
                     </div>

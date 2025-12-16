@@ -3,22 +3,28 @@ import { NeuralNetworkConfig } from "../types";
 // Mathematical Definitions for Research Panel
 export const MATH_DEFINITIONS = {
   tanh: "f(x) = \\frac{e^x - e^{-x}}{e^x + e^{-x}}",
-  loss: "J = d_{total} - \\beta \\cdot \\text{collision} - \\gamma \\cdot |\\Delta v|",
+  loss: "J = d_{total} - \\beta \\cdot \\text{collision} - \\gamma \\cdot |\\Delta v| - P_{fall}",
   crossover: "w_{child} = \\begin{cases} w_{p1} & \\text{if } r < 0.5 \\\\ w_{p2} & \\text{otherwise} \n\\end{cases}"
 };
 
 export class SimpleNeuralNetwork {
   config: NeuralNetworkConfig;
-  weights: Float32Array; // Optimized from number[]
+  weights: Float32Array;
   biases: Float32Array;
 
   constructor(config: NeuralNetworkConfig, weights?: number[] | Float32Array, biases?: number[] | Float32Array) {
     this.config = config;
     
-    // Calculate total weights needed: (Input * Hidden) + (Hidden * Output)
-    const weightsCount = (config.inputNodes * config.hiddenNodes) + (config.hiddenNodes * config.outputNodes);
-    // Calculate total biases needed: Hidden + Output
-    const biasesCount = config.hiddenNodes + config.outputNodes;
+    // Calculate total weights and biases needed for Deep Network
+    let weightsCount = 0;
+    let biasesCount = 0;
+
+    const layers = [config.inputNodes, ...config.hiddenLayers, config.outputNodes];
+
+    for (let i = 0; i < layers.length - 1; i++) {
+        weightsCount += layers[i] * layers[i+1];
+        biasesCount += layers[i+1];
+    }
 
     if (weights && weights.length === weightsCount) {
       this.weights = weights instanceof Float32Array ? weights : new Float32Array(weights);
@@ -39,56 +45,42 @@ export class SimpleNeuralNetwork {
     }
   }
 
-  // Activation function (Tanh for -1 to 1 output)
-  // Optimized: no method call overhead inside loops if possible, but kept for clarity
-  static activate(x: number): number {
-    return Math.tanh(x);
-  }
-
-  // Optimized predict function using plain loops and typed arrays
+  // Optimized predict function handling deep layers
   predict(inputs: number[] | Float32Array): number[] {
-    const { inputNodes, hiddenNodes, outputNodes } = this.config;
-    // Safety check commented out for raw performance in hot loop
-    /* if (inputs.length !== inputNodes) return []; */
-
-    const weights = this.weights;
-    const biases = this.biases;
+    let currentActivations = inputs instanceof Float32Array ? inputs : new Float32Array(inputs);
+    
     let wIndex = 0;
     let bIndex = 0;
 
-    // Input -> Hidden Layer
-    // We can pre-allocate this array in the class if we want zero GC, 
-    // but local var is safer for concurrency conceptually (though JS is single threaded)
-    const hiddenOutputs = new Float32Array(hiddenNodes); 
-    
-    for (let i = 0; i < hiddenNodes; i++) {
-      let sum = 0;
-      for (let j = 0; j < inputNodes; j++) {
-        sum += inputs[j] * weights[wIndex++];
-      }
-      sum += biases[bIndex++];
-      // Inline tanh for slight perf boost
-      hiddenOutputs[i] = Math.tanh(sum);
+    const structure = [this.config.inputNodes, ...this.config.hiddenLayers, this.config.outputNodes];
+
+    // Feed Forward through layers
+    for (let i = 0; i < structure.length - 1; i++) {
+        const inputSize = structure[i];
+        const outputSize = structure[i+1];
+        const nextActivations = new Float32Array(outputSize);
+
+        for (let j = 0; j < outputSize; j++) {
+            let sum = 0;
+            // Hot loop optimization: standard for loop is faster than reduce
+            for (let k = 0; k < inputSize; k++) {
+                sum += currentActivations[k] * this.weights[wIndex++];
+            }
+            sum += this.biases[bIndex++];
+            nextActivations[j] = Math.tanh(sum);
+        }
+        currentActivations = nextActivations;
     }
 
-    // Hidden -> Output Layer
-    const finalOutputs: number[] = new Array(outputNodes);
-    for (let i = 0; i < outputNodes; i++) {
-      let sum = 0;
-      for (let j = 0; j < hiddenNodes; j++) {
-        sum += hiddenOutputs[j] * weights[wIndex++];
-      }
-      sum += biases[bIndex++];
-      finalOutputs[i] = Math.tanh(sum);
-    }
-
-    return finalOutputs;
+    // Convert final Float32Array to standard array for compatibility with consumers
+    return Array.from(currentActivations);
   }
 
   static mutate(network: SimpleNeuralNetwork, rate: number, amount: number): SimpleNeuralNetwork {
     const newWeights = new Float32Array(network.weights.length);
     const newBiases = new Float32Array(network.biases.length);
 
+    // Loop unrolling not necessary here, JS engines optimize simple loops well
     for (let i = 0; i < network.weights.length; i++) {
       if (Math.random() < rate) {
         newWeights[i] = network.weights[i] + (Math.random() * 2 - 1) * amount;
@@ -107,14 +99,11 @@ export class SimpleNeuralNetwork {
 
     return new SimpleNeuralNetwork(network.config, newWeights, newBiases);
   }
-
-  static copy(network: SimpleNeuralNetwork): SimpleNeuralNetwork {
-    return new SimpleNeuralNetwork(network.config, new Float32Array(network.weights), new Float32Array(network.biases));
-  }
   
   static crossover(parentA: SimpleNeuralNetwork, parentB: SimpleNeuralNetwork): SimpleNeuralNetwork {
       const lenW = parentA.weights.length;
       const newWeights = new Float32Array(lenW);
+      // Uniform crossover
       for(let i=0; i<lenW; i++) {
         newWeights[i] = Math.random() < 0.5 ? parentA.weights[i] : parentB.weights[i];
       }

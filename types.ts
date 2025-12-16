@@ -1,6 +1,6 @@
 export interface NeuralNetworkConfig {
   inputNodes: number;
-  hiddenNodes: number;
+  hiddenLayers: number[]; // Changed from single hiddenNodes number to array
   outputNodes: number;
 }
 
@@ -16,7 +16,7 @@ export interface SimulationConfig {
   populationSize: number;
   mutationRate: number;
   mutationAmount: number;
-  simulationTimeSteps: number; // Max frames per generation
+  simulationTimeSteps: number; 
   timeScale: number;
   elitsmCount: number;
 }
@@ -25,9 +25,9 @@ export interface GenerationStats {
   generation: number;
   maxFitness: number;
   avgFitness: number;
-  avgLoss: number; // New metric for penalties/instability
+  avgLoss: number;
   bestDistance: number;
-  bestGenomeWeights?: number[]; // For history tracking
+  bestGenomeWeights?: number[]; 
 }
 
 export interface WeightHistoryPoint {
