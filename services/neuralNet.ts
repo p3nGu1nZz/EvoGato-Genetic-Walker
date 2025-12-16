@@ -14,15 +14,18 @@ export class SimpleNeuralNetwork {
   
   // Optimization: Pre-allocated buffers to prevent GC during prediction
   private layerBuffers: Float32Array[];
+  // Optimization: Cached structure to avoid array allocation per predict
+  private structure: number[];
 
   constructor(config: NeuralNetworkConfig, weights?: number[] | Float32Array, biases?: number[] | Float32Array) {
     this.config = config;
+    this.structure = [config.inputNodes, ...config.hiddenLayers, config.outputNodes];
     
     // Calculate total weights and biases needed for Deep Network
     let weightsCount = 0;
     let biasesCount = 0;
 
-    const layers = [config.inputNodes, ...config.hiddenLayers, config.outputNodes];
+    const layers = this.structure;
 
     for (let i = 0; i < layers.length - 1; i++) {
         weightsCount += layers[i] * layers[i+1];
@@ -73,7 +76,8 @@ export class SimpleNeuralNetwork {
     let wIndex = 0;
     let bIndex = 0;
 
-    const structure = [this.config.inputNodes, ...this.config.hiddenLayers, this.config.outputNodes];
+    // Use cached structure
+    const structure = this.structure;
 
     // Feed Forward through layers
     for (let i = 0; i < structure.length - 1; i++) {

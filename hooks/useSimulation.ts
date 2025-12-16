@@ -28,6 +28,9 @@ const COLORS = [
   '#fb7185'
 ];
 
+// Optimizations
+const INV_PI = 1 / Math.PI;
+
 type AppState = 'START' | 'RUNNING' | 'TRANSITION' | 'PAUSED';
 
 interface CatAgent {
@@ -55,6 +58,9 @@ export const useSimulation = () => {
   const speedRef = useRef(1);
   const appStateRef = useRef<AppState>('START');
   
+  // Optimization: Map for O(1) collision lookup (BodyID -> CatAgent)
+  const bodyMapRef = useRef<Map<number, CatAgent>>(new Map());
+
   // Optimization Buffers
   const inputBufferRef = useRef<Float32Array>(new Float32Array(NN_CONFIG.inputNodes));
 
@@ -118,45 +124,44 @@ export const useSimulation = () => {
     engineRef.current = engine;
     
     // Death/Collision Handler
+    const handleCollision = (pair: Matter.Pair) => {
+        const bodyA = pair.bodyA;
+        const bodyB = pair.bodyB;
+        
+        // Fast lookup via Map
+        const catA = bodyMapRef.current.get(bodyA.id);
+        const catB = bodyMapRef.current.get(bodyB.id);
+
+        if (catA && catA.active) processCatCollision(catA, bodyA, bodyB);
+        if (catB && catB.active) processCatCollision(catB, bodyB, bodyA);
+    };
+
+    const processCatCollision = (cat: CatAgent, catPart: Matter.Body, other: Matter.Body) => {
+        const isTerrain = other.isStatic;
+        if (!isTerrain) return;
+
+        if (catPart === cat.entity.head) {
+            cat.penalty += 100;
+        } else if (catPart === cat.entity.torsoFront || catPart === cat.entity.torsoBack) {
+            cat.hasTouchedGroundBody = true;
+        }
+    };
+
     Matter.Events.on(engine, 'collisionStart', (event) => {
         if (frameCountRef.current < 120) return;
-
-        event.pairs.forEach(pair => {
-            const bodyA = pair.bodyA;
-            const bodyB = pair.bodyB;
-            
-            catsRef.current.forEach(cat => {
-                if (!cat.active) return;
-                
-                const head = cat.entity.head;
-                const torsos = [cat.entity.torsoFront, cat.entity.torsoBack];
-                const isTerrainA = bodyA.isStatic;
-                const isTerrainB = bodyB.isStatic;
-
-                if ((isTerrainA && bodyB === head) || (isTerrainB && bodyA === head)) {
-                    cat.penalty += 100; 
-                }
-                
-                if ((isTerrainA && torsos.includes(bodyB)) || (isTerrainB && torsos.includes(bodyA))) {
-                    cat.hasTouchedGroundBody = true; 
-                }
-            });
-        });
+        const pairs = event.pairs;
+        const len = pairs.length;
+        for (let i = 0; i < len; i++) {
+            handleCollision(pairs[i]);
+        }
     });
 
     Matter.Events.on(engine, 'collisionActive', (event) => {
-         event.pairs.forEach(pair => {
-            catsRef.current.forEach(cat => {
-                if (!cat.active) return;
-                const torsos = [cat.entity.torsoFront, cat.entity.torsoBack];
-                const isTerrainA = pair.bodyA.isStatic;
-                const isTerrainB = pair.bodyB.isStatic;
-                
-                if ((isTerrainA && torsos.includes(pair.bodyB)) || (isTerrainB && torsos.includes(pair.bodyA))) {
-                    cat.hasTouchedGroundBody = true;
-                }
-            });
-         });
+         const pairs = event.pairs;
+         const len = pairs.length;
+         for (let i = 0; i < len; i++) {
+            handleCollision(pairs[i]);
+         }
     });
     
     const terrain = createTerrain(0, 50);
@@ -168,17 +173,17 @@ export const useSimulation = () => {
     if (!engineRef.current) return;
     Matter.Composite.clear(engineRef.current.world, false, true);
     Matter.Composite.add(engineRef.current.world, terrainRef.current);
+    bodyMapRef.current.clear();
 
     const newCats: CatAgent[] = [];
-    // Ensure we respect the saved population size if weights are provided, otherwise use config
     const size = populationWeights ? populationWeights.length : configRef.current.populationSize;
 
-    if (!populationWeights) {
-      for (let i = 0; i < size; i++) {
+    const setupAgent = (i: number, weights?: Float32Array, biases?: Float32Array) => {
         const color = COLORS[i % COLORS.length];
         const entity = createCat(200, 450, `cat-${i}`, color);
-        const brain = new SimpleNeuralNetwork(NN_CONFIG);
-        newCats.push({ 
+        const brain = new SimpleNeuralNetwork(NN_CONFIG, weights, biases);
+        
+        const agent: CatAgent = { 
             entity, 
             brain, 
             fitness: 0, 
@@ -187,25 +192,27 @@ export const useSimulation = () => {
             hasTouchedGroundBody: false,
             prevVelocity: 0,
             distanceTraveled: 0
-        });
-        Matter.Composite.add(engineRef.current.world, entity.composite);
+        };
+
+        // Populate Collision Map for fast lookup
+        bodyMapRef.current.set(entity.head.id, agent);
+        bodyMapRef.current.set(entity.torsoFront.id, agent);
+        bodyMapRef.current.set(entity.torsoBack.id, agent);
+
+        return agent;
+    };
+
+    if (!populationWeights) {
+      for (let i = 0; i < size; i++) {
+        const agent = setupAgent(i);
+        newCats.push(agent);
+        Matter.Composite.add(engineRef.current.world, agent.entity.composite);
       }
     } else {
         populationWeights.forEach((dna, i) => {
-             const color = COLORS[i % COLORS.length]; 
-             const entity = createCat(200, 450, `cat-${i}`, color);
-             const brain = new SimpleNeuralNetwork(NN_CONFIG, dna.weights, dna.biases);
-             newCats.push({ 
-                 entity, 
-                 brain, 
-                 fitness: 0, 
-                 penalty: 0,
-                 active: true, 
-                 hasTouchedGroundBody: false,
-                 prevVelocity: 0,
-                 distanceTraveled: 0
-             });
-             Matter.Composite.add(engineRef.current.world, entity.composite);
+             const agent = setupAgent(i, dna.weights, dna.biases);
+             newCats.push(agent);
+             Matter.Composite.add(engineRef.current.world, agent.entity.composite);
         });
     }
 
@@ -310,18 +317,19 @@ export const useSimulation = () => {
             const tb = cat.entity.torsoBack;
             const spineAngle = tf.angle - tb.angle;
             
-            inputs[0] = tf.angle / Math.PI;
-            inputs[1] = tb.angle / Math.PI;
-            inputs[2] = spineAngle / Math.PI;
-            inputs[3] = (600 - tf.position.y) / 200;
+            // Optimization: Use INV_PI and precomputed division
+            inputs[0] = tf.angle * INV_PI;
+            inputs[1] = tb.angle * INV_PI;
+            inputs[2] = spineAngle * INV_PI;
+            inputs[3] = (600 - tf.position.y) * 0.005; // 1/200
             inputs[4] = tf.angularVelocity;
             inputs[5] = oscillator;
             
             let bufIdx = 6;
             for(let L=0; L<4; L++) {
                 const leg = cat.entity.legs[L];
-                inputs[bufIdx++] = (leg.upper.angle - leg.jointHip.bodyA.angle) / Math.PI;
-                inputs[bufIdx++] = (leg.lower.angle - leg.upper.angle) / Math.PI;
+                inputs[bufIdx++] = (leg.upper.angle - leg.jointHip.bodyA.angle) * INV_PI;
+                inputs[bufIdx++] = (leg.lower.angle - leg.upper.angle) * INV_PI;
             }
 
             // --- Predict (Deep Network) ---
@@ -329,22 +337,26 @@ export const useSimulation = () => {
             
             // --- Actuate ---
             const TORQUE_STRENGTH = 0.5; 
-            const SPINE_STRENGTH = 0.3;
-            const spineTorque = outputs[0] * SPINE_STRENGTH;
-            Matter.Body.setAngularVelocity(cat.entity.torsoFront, cat.entity.torsoFront.angularVelocity + spineTorque * 0.1);
-            Matter.Body.setAngularVelocity(cat.entity.torsoBack, cat.entity.torsoBack.angularVelocity - spineTorque * 0.1);
+            const spineTorque = outputs[0] * 0.3; // SPINE_STRENGTH
+            
+            Matter.Body.setAngularVelocity(tf, tf.angularVelocity + spineTorque * 0.1);
+            Matter.Body.setAngularVelocity(tb, tb.angularVelocity - spineTorque * 0.1);
+            
+            // Unrolling joint loop slightly for better perf
+            const joints = cat.entity.joints;
             for(let j=1; j<9; j++) {
-                const joint = cat.entity.joints[j]; 
+                const joint = joints[j]; 
                 const output = outputs[j];
                 const torque = output * TORQUE_STRENGTH;
+                // Matter.Body.setAngularVelocity is somewhat expensive, but necessary
                 Matter.Body.setAngularVelocity(joint.bodyA, joint.bodyA.angularVelocity - torque * 0.05);
                 Matter.Body.setAngularVelocity(joint.bodyB, joint.bodyB.angularVelocity + torque * 0.05);
             }
             
             // --- Evaluate ---
-            const currentX = cat.entity.torsoFront.position.x;
-            const currentY = cat.entity.torsoFront.position.y;
-            const currentVelocity = cat.entity.torsoFront.velocity.x;
+            const currentX = tf.position.x;
+            const currentY = tf.position.y;
+            const currentVelocity = tf.velocity.x;
             cat.distanceTraveled = Math.max(0, currentX - 200);
             
             if (cat.hasTouchedGroundBody) cat.penalty += 1; 
