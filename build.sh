@@ -3,7 +3,7 @@
 # Build script for EvoGato Genetic Walker Electron App
 # This script builds the Vite application and packages it with Electron
 
-set -e
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
