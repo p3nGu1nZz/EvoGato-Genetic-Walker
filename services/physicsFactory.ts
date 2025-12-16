@@ -31,14 +31,19 @@ export interface CatEntity {
   head: Matter.Body;
   legs: Leg[];
   tail: Matter.Body[];
-  joints: Matter.Constraint[]; 
+  joints: Matter.Constraint[];
+  palette: {
+      body: string;
+      legDark: string;
+      tail: string;
+      ear: string;
+  };
 }
 
 export const createTerrain = (startX: number, length: number): Matter.Body[] => {
   const bodies: Matter.Body[] = [];
   
   // Starting platform
-  // x=200 center, w=600 -> ends at x=500. y=600 center, h=100 -> surface at 550.
   bodies.push(Matter.Bodies.rectangle(startX + 200, 600, 600, 100, { 
     isStatic: true,
     render: { fillStyle: '#334155' },
@@ -47,7 +52,6 @@ export const createTerrain = (startX: number, length: number): Matter.Body[] => 
     collisionFilter: { category: CATEGORY_TERRAIN }
   }));
 
-  // Start the dynamic generation from inside the start platform to ensure overlap
   let currentX = startX + 450;
   let currentY = 600;
 
@@ -55,17 +59,14 @@ export const createTerrain = (startX: number, length: number): Matter.Body[] => 
 
   for (let i = 0; i < length; i++) {
     const segmentLength = 150 + Math.random() * 100;
-    // Gentle slopes
-    const angle = (Math.random() - 0.5) * 0.5; // -0.25 to 0.25 radians
+    const angle = (Math.random() - 0.5) * 0.5;
 
     const nextX = currentX + Math.cos(angle) * segmentLength;
     let nextY = currentY + Math.sin(angle) * segmentLength;
 
-    // Constraints to keep terrain on screen
     if (nextY < 350) nextY = 350;
     if (nextY > 750) nextY = 750;
 
-    // Recalculate angle/length after clamping Y (approximated)
     const dx = nextX - currentX;
     const dy = nextY - currentY;
     const fixedAngle = Math.atan2(dy, dx);
@@ -74,7 +75,6 @@ export const createTerrain = (startX: number, length: number): Matter.Body[] => 
     const midX = (currentX + nextX) / 2;
     const midY = (currentY + nextY) / 2;
 
-    // Create the segment
     const segment = Matter.Bodies.rectangle(midX, midY, fixedLength, GROUND_THICKNESS, {
       isStatic: true,
       angle: fixedAngle,
@@ -84,9 +84,6 @@ export const createTerrain = (startX: number, length: number): Matter.Body[] => 
       collisionFilter: { category: CATEGORY_TERRAIN }
     });
 
-    // Create a joint circle to smooth the connection between segments
-    // We place it at the *start* of the segment (currentX, currentY)
-    // Only needed if i > 0, but doing it for all ensures smooth start overlap too
     const joint = Matter.Bodies.circle(currentX, currentY, GROUND_THICKNESS / 2, {
         isStatic: true,
         render: { fillStyle: '#334155' },
@@ -100,14 +97,12 @@ export const createTerrain = (startX: number, length: number): Matter.Body[] => 
     currentY = nextY;
   }
 
-  // Final joint at the very end
   bodies.push(Matter.Bodies.circle(currentX, currentY, GROUND_THICKNESS / 2, {
         isStatic: true,
         render: { fillStyle: '#334155' },
         collisionFilter: { category: CATEGORY_TERRAIN }
   }));
 
-  // End wall
   bodies.push(Matter.Bodies.rectangle(currentX + 50, 500, 50, 1000, { 
       isStatic: true, 
       render: { fillStyle: '#1e293b' },
@@ -120,18 +115,20 @@ export const createTerrain = (startX: number, length: number): Matter.Body[] => 
 export const createCat = (x: number, y: number, id: string, color: string): CatEntity => {
   const group = Matter.Body.nextGroup(true); 
   
-  // Collision filter: 
-  // group: matches within this cat (so parts of same cat collide)
-  // category: CATEGORY_CAT
-  // mask: CATEGORY_TERRAIN (only collide with terrain, ignore other cats)
   const catFilter = { 
     group: group, 
     category: CATEGORY_CAT, 
     mask: CATEGORY_TERRAIN 
   };
 
-  // --- Spine System ---
-  // Front Torso
+  // Pre-calculate Palette
+  const palette = {
+      body: color,
+      legDark: shadeColor(color, -40),
+      tail: shadeColor(color, -10),
+      ear: shadeColor(color, -20)
+  };
+
   const torsoFront = Matter.Bodies.rectangle(x + 20, y, TORSO_WIDTH, TORSO_HEIGHT, {
     collisionFilter: catFilter,
     density: 0.002,
@@ -140,7 +137,6 @@ export const createCat = (x: number, y: number, id: string, color: string): CatE
     render: { fillStyle: color }
   });
 
-  // Back Torso
   const torsoBack = Matter.Bodies.rectangle(x - 20, y, TORSO_WIDTH, TORSO_HEIGHT, {
     collisionFilter: catFilter,
     density: 0.002,
@@ -149,7 +145,6 @@ export const createCat = (x: number, y: number, id: string, color: string): CatE
     render: { fillStyle: color }
   });
 
-  // Spine Joint connecting Front and Back
   const spineJoint = Matter.Constraint.create({
       bodyA: torsoBack,
       bodyB: torsoFront,
@@ -161,7 +156,6 @@ export const createCat = (x: number, y: number, id: string, color: string): CatE
       render: { visible: true, strokeStyle: '#00000044', lineWidth: 4 }
   });
 
-  // --- Head ---
   const head = Matter.Bodies.circle(x + 40 + HEAD_RADIUS, y - 10, HEAD_RADIUS, {
       collisionFilter: catFilter,
       density: 0.001,
@@ -178,7 +172,6 @@ export const createCat = (x: number, y: number, id: string, color: string): CatE
       render: { visible: false }
   });
 
-  // --- Tail ---
   const tailSegments: Matter.Body[] = [];
   const tailConstraints: Matter.Constraint[] = [];
   let previousBody = torsoBack;
@@ -190,7 +183,7 @@ export const createCat = (x: number, y: number, id: string, color: string): CatE
           density: 0.001,
           friction: 0.1,
           chamfer: { radius: 2 },
-          render: { fillStyle: shadeColor(color, -10) }
+          render: { fillStyle: palette.tail }
       });
 
       const constraint = Matter.Constraint.create({
@@ -209,7 +202,6 @@ export const createCat = (x: number, y: number, id: string, color: string): CatE
       previousBody = segment;
   }
 
-  // --- Legs ---
   const legs: Leg[] = [];
   const motorJoints: Matter.Constraint[] = [];
 
@@ -222,9 +214,8 @@ export const createCat = (x: number, y: number, id: string, color: string): CatE
 
   legConfigs.forEach(conf => {
     const isFrontVisual = conf.z === 'front';
-    const legColor = isFrontVisual ? color : shadeColor(color, -40); 
+    const legColor = isFrontVisual ? palette.body : palette.legDark; 
 
-    // Calculate absolute position roughly based on offset
     const startX = conf.body.position.x + conf.xOffset;
     const startY = conf.body.position.y + 10;
 
@@ -246,7 +237,6 @@ export const createCat = (x: number, y: number, id: string, color: string): CatE
       render: { fillStyle: legColor }
     });
 
-    // Hip
     const hipJoint = Matter.Constraint.create({
       bodyA: conf.body,
       bodyB: upperLeg,
@@ -258,7 +248,6 @@ export const createCat = (x: number, y: number, id: string, color: string): CatE
       render: { visible: true, lineWidth: 3, strokeStyle: isFrontVisual ? '#00000044' : '#00000022' }
     });
 
-    // Knee
     const kneeJoint = Matter.Constraint.create({
       bodyA: upperLeg,
       bodyB: lowerLeg,
@@ -290,7 +279,8 @@ export const createCat = (x: number, y: number, id: string, color: string): CatE
     head,
     legs,
     tail: tailSegments,
-    joints: [spineJoint, ...motorJoints] // Spine is index 0
+    joints: [spineJoint, ...motorJoints],
+    palette
   };
 };
 

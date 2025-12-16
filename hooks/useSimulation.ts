@@ -75,7 +75,7 @@ export const useSimulation = () => {
   
   // Zoom State
   const [zoom, setZoom] = useState(1);
-  const zoomRef = useRef(1); // Use ref for render loop performance
+  const zoomRef = useRef(1); 
 
   // Fix for stale config in loop: Use a Ref
   const configRef = useRef(config);
@@ -170,7 +170,8 @@ export const useSimulation = () => {
     Matter.Composite.add(engineRef.current.world, terrainRef.current);
 
     const newCats: CatAgent[] = [];
-    const size = configRef.current.populationSize;
+    // Ensure we respect the saved population size if weights are provided, otherwise use config
+    const size = populationWeights ? populationWeights.length : configRef.current.populationSize;
 
     if (!populationWeights) {
       for (let i = 0; i < size; i++) {
@@ -289,8 +290,6 @@ export const useSimulation = () => {
     const startTime = Date.now();
     const TIMEOUT_CAP = 200; 
     const inputs = inputBufferRef.current; 
-    
-    // Use REF to get latest config without closure staleness
     const currentConfig = configRef.current;
 
     for (let s = 0; s < speedRef.current; s++) {
@@ -454,17 +453,68 @@ export const useSimulation = () => {
       setCurrentGen(1);
       createPopulation(); 
   };
+
+  const getSimulationState = () => {
+      return {
+          stats,
+          config: configRef.current,
+          population: catsRef.current.map(c => ({
+              id: c.entity.id,
+              weights: Array.from(c.brain.weights),
+              bias: Array.from(c.brain.biases),
+              fitness: c.fitness,
+              color: c.entity.torsoFront.render.fillStyle as string
+          }))
+      };
+  };
+  
+  const loadSession = (data: any) => {
+    // 1. Restore Config
+    if (data.config) {
+        setConfig(data.config);
+        configRef.current = data.config; // Sync ref immediately
+    }
+
+    // 2. Restore Stats and Generation
+    if (data.stats && Array.isArray(data.stats)) {
+        setStats(data.stats);
+        const lastGen = data.stats.length > 0 ? data.stats[data.stats.length - 1].generation : 0;
+        // Start from next generation of saved state
+        generationRef.current = lastGen + 1;
+        setCurrentGen(lastGen + 1);
+    } else {
+         generationRef.current = 1;
+         setCurrentGen(1);
+    }
+
+    // 3. Restore Population
+    if (data.population && Array.isArray(data.population)) {
+        const popData = data.population.map((g: any) => ({
+            weights: new Float32Array(g.weights),
+            biases: new Float32Array(g.bias)
+        }));
+        createPopulation(popData);
+    } else {
+        createPopulation();
+    }
+    
+    // 4. Reset Terrain
+    if (engineRef.current) {
+        Matter.Composite.remove(engineRef.current.world, terrainRef.current);
+        const newTerrain = createTerrain(0, 50 + generationRef.current * 5); 
+        terrainRef.current = newTerrain;
+        Matter.Composite.add(engineRef.current.world, terrainRef.current);
+    }
+
+    setAppState('RUNNING');
+    appStateRef.current = 'RUNNING';
+  };
   
   const handleCanvasClick = (e: React.MouseEvent) => {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect || !engineRef.current) return;
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      
-      // Calculate World Coordinates based on Camera logic in RenderService
-      // This is an approximation because we need the current FocusCat position
-      // For picking, it's easier to iterate screen-space if we projected, 
-      // but here we just try to inverse the translation.
       
       let bestCat = catsRef.current[0];
       let maxX = -Infinity;
@@ -477,8 +527,6 @@ export const useSimulation = () => {
       const focusCat = selectedCatId ? catsRef.current.find(c => c.entity.id === selectedCatId) : bestCat;
       const camX = focusCat ? (-focusCat.entity.torsoFront.position.x + canvasRef.current.width / (2 * zoomRef.current)) : 0;
       
-      // x_screen = (x_world + camX) * zoom
-      // x_world = (x_screen / zoom) - camX
       const worldX = (x / zoomRef.current) - camX;
       const worldY = y / zoomRef.current;
 
@@ -489,9 +537,6 @@ export const useSimulation = () => {
           const body = hits[0];
           const cat = catsRef.current.find(c => c.entity.torsoFront === body);
           if (cat) setSelectedCatId(cat.entity.id);
-      } else {
-          // If click empty space, maybe deselect? Optional.
-          // setSelectedCatId(null);
       }
   };
 
@@ -517,6 +562,8 @@ export const useSimulation = () => {
       handleReset,
       handleCanvasClick,
       setStats,
-      handleZoom
+      handleZoom,
+      loadSession,
+      getSimulationState
   };
 };

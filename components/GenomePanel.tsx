@@ -92,23 +92,38 @@ export const GenomePanel: React.FC<GenomePanelProps> = ({ population, selectedId
   return (
     <div className="absolute bottom-24 right-4 bg-slate-900/80 backdrop-blur-md p-4 rounded-xl border border-slate-700 w-64 shadow-2xl z-10 flex flex-col gap-2 animate-in slide-in-from-right fade-in duration-500">
       
-      {/* Weight History Tooltip/Overlay - fixed z-index logic */}
+      {/* Weight History Tooltip/Overlay */}
       {hoveredWeight && (
-          <div className="absolute bottom-full left-0 mb-2 bg-slate-950 border border-slate-700 p-3 rounded-lg shadow-2xl w-56 z-50 animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
+          <div className="absolute bottom-full left-0 mb-2 bg-slate-950/95 backdrop-blur border border-slate-700 p-3 rounded-lg shadow-2xl w-56 z-50 animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
               <div className="text-[10px] text-slate-400 mb-1 flex justify-between font-bold">
                   <span>Weight Index #{hoveredWeight.index}</span>
                   <span className="font-mono text-white">{hoveredWeight.value.toFixed(4)}</span>
               </div>
-              <div className="h-20 w-full bg-slate-900/50 rounded overflow-hidden">
-                {history.length > 1 ? (
+              <div className="h-20 w-full bg-slate-900/50 rounded overflow-hidden relative">
+                {history.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={getWeightHistoryData(hoveredWeight.index)}>
-                            <Area type="monotone" dataKey="val" stroke="#818cf8" fill="#3730a3" strokeWidth={2} isAnimationActive={false} />
-                            <YAxis hide domain={['auto', 'auto']} />
+                            <defs>
+                                <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#818cf8" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <Area 
+                                type="monotone" 
+                                dataKey="val" 
+                                stroke="#818cf8" 
+                                fill="url(#colorVal)" 
+                                strokeWidth={2} 
+                                isAnimationActive={false} 
+                            />
+                            <YAxis hide domain={['dataMin - 0.1', 'dataMax + 0.1']} />
                         </AreaChart>
                     </ResponsiveContainer>
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-600">Gathering History...</div>
+                    <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-600">
+                        Gathering History...
+                    </div>
                 )}
               </div>
           </div>

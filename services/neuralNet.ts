@@ -11,6 +11,9 @@ export class SimpleNeuralNetwork {
   config: NeuralNetworkConfig;
   weights: Float32Array;
   biases: Float32Array;
+  
+  // Optimization: Pre-allocated buffers to prevent GC during prediction
+  private layerBuffers: Float32Array[];
 
   constructor(config: NeuralNetworkConfig, weights?: number[] | Float32Array, biases?: number[] | Float32Array) {
     this.config = config;
@@ -43,11 +46,29 @@ export class SimpleNeuralNetwork {
         this.biases[i] = Math.random() * 2 - 1;
       }
     }
+
+    // Initialize Layer Buffers
+    this.layerBuffers = [];
+    for (const size of layers) {
+      this.layerBuffers.push(new Float32Array(size));
+    }
   }
 
-  // Optimized predict function handling deep layers
-  predict(inputs: number[] | Float32Array): number[] {
-    let currentActivations = inputs instanceof Float32Array ? inputs : new Float32Array(inputs);
+  // Optimized predict function: Zero allocation
+  predict(inputs: number[] | Float32Array): Float32Array {
+    // If inputs is a Float32Array and matches size, we can use it as the first buffer implicitly.
+    // If it's a number array, we copy it to layerBuffers[0].
+    
+    let currentActivations: Float32Array;
+    
+    if (inputs instanceof Float32Array) {
+        currentActivations = inputs;
+    } else {
+        // Fallback for number[]
+        const buf = this.layerBuffers[0];
+        for (let i = 0; i < inputs.length; i++) buf[i] = inputs[i];
+        currentActivations = buf;
+    }
     
     let wIndex = 0;
     let bIndex = 0;
@@ -58,29 +79,28 @@ export class SimpleNeuralNetwork {
     for (let i = 0; i < structure.length - 1; i++) {
         const inputSize = structure[i];
         const outputSize = structure[i+1];
-        const nextActivations = new Float32Array(outputSize);
+        
+        // Use pre-allocated buffer for next layer
+        const nextActivations = this.layerBuffers[i + 1];
 
         for (let j = 0; j < outputSize; j++) {
-            let sum = 0;
-            // Hot loop optimization: standard for loop is faster than reduce
+            let sum = this.biases[bIndex++]; 
+            // Hot loop
             for (let k = 0; k < inputSize; k++) {
                 sum += currentActivations[k] * this.weights[wIndex++];
             }
-            sum += this.biases[bIndex++];
             nextActivations[j] = Math.tanh(sum);
         }
         currentActivations = nextActivations;
     }
 
-    // Convert final Float32Array to standard array for compatibility with consumers
-    return Array.from(currentActivations);
+    return currentActivations;
   }
 
   static mutate(network: SimpleNeuralNetwork, rate: number, amount: number): SimpleNeuralNetwork {
     const newWeights = new Float32Array(network.weights.length);
     const newBiases = new Float32Array(network.biases.length);
 
-    // Loop unrolling not necessary here, JS engines optimize simple loops well
     for (let i = 0; i < network.weights.length; i++) {
       if (Math.random() < rate) {
         newWeights[i] = network.weights[i] + (Math.random() * 2 - 1) * amount;
@@ -103,7 +123,6 @@ export class SimpleNeuralNetwork {
   static crossover(parentA: SimpleNeuralNetwork, parentB: SimpleNeuralNetwork): SimpleNeuralNetwork {
       const lenW = parentA.weights.length;
       const newWeights = new Float32Array(lenW);
-      // Uniform crossover
       for(let i=0; i<lenW; i++) {
         newWeights[i] = Math.random() < 0.5 ? parentA.weights[i] : parentB.weights[i];
       }

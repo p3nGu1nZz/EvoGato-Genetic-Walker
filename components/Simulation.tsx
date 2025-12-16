@@ -32,19 +32,23 @@ export const Simulation: React.FC = () => {
       handleReset,
       handleCanvasClick,
       setStats,
-      handleZoom
+      handleZoom,
+      loadSession,
+      getSimulationState
   } = useSimulation();
 
   const [showSettings, setShowSettings] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
 
   const handleSaveSession = () => {
-      const sessionData = { stats, config };
+      // Use getSimulationState to fetch the latest ref values synchronously
+      const sessionData = getSimulationState();
+      
       const blob = new Blob([JSON.stringify(sessionData)], {type: 'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `evogato-stats-gen${currentGen}.json`;
+      a.download = `evogato-gen${currentGen}.json`;
       a.click();
       URL.revokeObjectURL(url);
   };
@@ -54,15 +58,16 @@ export const Simulation: React.FC = () => {
       reader.onload = (e) => {
           try {
               const data = JSON.parse(e.target?.result as string);
-              if (data.stats) {
-                  setStats(data.stats);
-                  if (data.config) {
-                       Object.keys(data.config).forEach(k => updateConfig(k as any, data.config[k]));
-                  }
-                  alert("Stats loaded from session.");
+              // Basic validation
+              if (data.stats || data.population) {
+                  loadSession(data);
+                  alert(`Session loaded! Resuming from Generation ${data.stats && data.stats.length > 0 ? data.stats[data.stats.length-1].generation + 1 : 1}`);
+              } else {
+                  alert("Invalid session file.");
               }
           } catch(err) {
               console.error(err);
+              alert("Error parsing session file.");
           }
       };
       reader.readAsText(file);
