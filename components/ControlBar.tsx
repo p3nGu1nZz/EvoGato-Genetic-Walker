@@ -47,15 +47,15 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         className={`p-2 rounded-full transition-all duration-200 ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
         title={title}
       >
-        <Icon size={18} />
+        <Icon size={16} />
       </button>
   );
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-50 pointer-events-none">
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
         
-        {/* Main Control Pill */}
-        <div className="bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700 shadow-2xl flex items-center gap-3 pointer-events-auto">
+        {/* Single Consolidated Control Bar */}
+        <div className="bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700 shadow-2xl flex items-center gap-2 pointer-events-auto">
             {/* Playback Controls */}
             <button 
                 onClick={onTogglePlay}
@@ -101,18 +101,19 @@ export const ControlBar: React.FC<ControlBarProps> = ({
                 </button>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
             </div>
-        </div>
 
-        {/* Panel Toggles (The "New Section") */}
-        <div className="bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700 shadow-xl flex items-center gap-2 pointer-events-auto transform translate-y-0 hover:-translate-y-1 transition-transform">
-            <ToggleButton active={showStats} onClick={toggleStats} icon={Activity} title="Live Stats" />
-            <ToggleButton active={showLeader} onClick={toggleLeader} icon={Trophy} title="Leader Telemetry" />
-            <ToggleButton active={showGenome} onClick={toggleGenome} icon={Dna} title="Genome View" />
-            <div className="w-px h-4 bg-slate-700"></div>
-            <ToggleButton active={showResearch} onClick={toggleResearch} icon={BookOpen} title="Research & Math" />
-            <ToggleButton active={showSettings} onClick={toggleSettings} icon={Sliders} title="Settings" />
-        </div>
+            <div className="h-6 w-px bg-slate-700 mx-1"></div>
 
+            {/* Panel Toggles */}
+            <div className="flex items-center gap-1">
+                <ToggleButton active={showStats} onClick={toggleStats} icon={Activity} title="Live Stats" />
+                <ToggleButton active={showLeader} onClick={toggleLeader} icon={Trophy} title="Leader Telemetry" />
+                <ToggleButton active={showGenome} onClick={toggleGenome} icon={Dna} title="Genome View" />
+                <div className="w-px h-4 bg-slate-700 mx-1"></div>
+                <ToggleButton active={showResearch} onClick={toggleResearch} icon={BookOpen} title="Research & Math" />
+                <ToggleButton active={showSettings} onClick={toggleSettings} icon={Sliders} title="Settings" />
+            </div>
+        </div>
     </div>
   );
 };

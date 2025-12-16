@@ -38,10 +38,10 @@ export const Simulation: React.FC = () => {
       getSimulationState
   } = useSimulation();
 
-  // Panel Visibility State
-  const [showStats, setShowStats] = useState(true);
-  const [showLeader, setShowLeader] = useState(true);
-  const [showGenome, setShowGenome] = useState(true);
+  // Panel Visibility State - All minimized by default
+  const [showStats, setShowStats] = useState(false);
+  const [showLeader, setShowLeader] = useState(false);
+  const [showGenome, setShowGenome] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
 
