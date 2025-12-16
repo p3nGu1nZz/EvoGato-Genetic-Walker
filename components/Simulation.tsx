@@ -8,6 +8,7 @@ import { TransitionScreen } from './TransitionScreen';
 import { StartScreen } from './StartScreen';
 import { SettingsPanel } from './SettingsPanel';
 import { ResearchPanel } from './ResearchPanel';
+import { DraggablePanel } from './DraggablePanel';
 
 export const Simulation: React.FC = () => {
   const {
@@ -37,13 +38,30 @@ export const Simulation: React.FC = () => {
       getSimulationState
   } = useSimulation();
 
+  // Panel Visibility State
+  const [showStats, setShowStats] = useState(true);
+  const [showLeader, setShowLeader] = useState(true);
+  const [showGenome, setShowGenome] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
 
+  // Panel Z-Index Management (Stacking Order)
+  const [panelOrder, setPanelOrder] = useState<string[]>(['stats', 'leader', 'genome', 'settings', 'research']);
+
+  const bringToFront = (id: string) => {
+      setPanelOrder(prev => {
+          const newOrder = prev.filter(p => p !== id);
+          newOrder.push(id);
+          return newOrder;
+      });
+  };
+
+  const getZIndex = (id: string) => {
+      return 10 + panelOrder.indexOf(id);
+  };
+
   const handleSaveSession = () => {
-      // Use getSimulationState to fetch the latest ref values synchronously
       const sessionData = getSimulationState();
-      
       const blob = new Blob([JSON.stringify(sessionData)], {type: 'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -58,7 +76,6 @@ export const Simulation: React.FC = () => {
       reader.onload = (e) => {
           try {
               const data = JSON.parse(e.target?.result as string);
-              // Basic validation
               if (data.stats || data.population) {
                   loadSession(data);
                   alert(`Session loaded! Resuming from Generation ${data.stats && data.stats.length > 0 ? data.stats[data.stats.length-1].generation + 1 : 1}`);
@@ -84,10 +101,14 @@ export const Simulation: React.FC = () => {
       />
       
       {appState === 'START' && <StartScreen onStart={handleStart} />}
-      {appState === 'TRANSITION' && <TransitionScreen generation={currentGen} />}
-      {showSettings && <SettingsPanel config={config} onUpdate={updateConfig} onClose={() => setShowSettings(false)} />}
-      {showResearch && <ResearchPanel onClose={() => setShowResearch(false)} />}
       
+      {/* Evolution Overlay - High Z-Index */}
+      {appState === 'TRANSITION' && (
+          <div className="absolute inset-0 z-[100]">
+            <TransitionScreen generation={currentGen} />
+          </div>
+      )}
+
       {appState !== 'START' && (
         <>
             <div className="absolute top-4 left-4 p-4 text-white/50 pointer-events-none z-0">
@@ -95,38 +116,114 @@ export const Simulation: React.FC = () => {
                 <p className="text-[10px] tracking-widest uppercase">Genetic Neural Network</p>
             </div>
 
-            <StatsPanel 
-                stats={stats} 
-                generation={currentGen}
-                bestDistance={bestDist}
-                activeCount={activeCount}
-                timeRemaining={timeLeft}
-            />
+            {/* Draggable Panels */}
             
-            <LeaderStats 
-                distance={bestDist}
-                height={0}
-                velocity={leaderVelocity}
-                color={leaderColor}
-            />
+            <DraggablePanel 
+                id="stats" 
+                title="Live Stats" 
+                initialX={window.innerWidth - 340} 
+                initialY={20} 
+                width="w-80"
+                visible={showStats}
+                onClose={() => setShowStats(false)}
+                zIndex={getZIndex('stats')}
+                onFocus={() => bringToFront('stats')}
+            >
+                <StatsPanel 
+                    stats={stats} 
+                    generation={currentGen}
+                    bestDistance={bestDist}
+                    activeCount={activeCount}
+                    timeRemaining={timeLeft}
+                />
+            </DraggablePanel>
 
-            <GenomePanel 
-                population={populationData}
-                selectedId={selectedCatId}
-                history={stats}
-            />
+            <DraggablePanel 
+                id="leader" 
+                title="Telemetry" 
+                initialX={20} 
+                initialY={120} 
+                width="w-56"
+                visible={showLeader}
+                onClose={() => setShowLeader(false)}
+                zIndex={getZIndex('leader')}
+                onFocus={() => bringToFront('leader')}
+            >
+                <LeaderStats 
+                    distance={bestDist}
+                    height={0}
+                    velocity={leaderVelocity}
+                    color={leaderColor}
+                />
+            </DraggablePanel>
+
+            <DraggablePanel 
+                id="genome" 
+                title="Population Grid" 
+                initialX={window.innerWidth - 300} 
+                initialY={window.innerHeight - 350} 
+                width="w-64"
+                visible={showGenome}
+                onClose={() => setShowGenome(false)}
+                zIndex={getZIndex('genome')}
+                onFocus={() => bringToFront('genome')}
+            >
+                <GenomePanel 
+                    population={populationData}
+                    selectedId={selectedCatId}
+                    history={stats}
+                />
+            </DraggablePanel>
             
+            <DraggablePanel 
+                id="settings" 
+                title="Settings" 
+                initialX={window.innerWidth / 2 - 200} 
+                initialY={window.innerHeight / 2 - 250} 
+                width="w-96"
+                visible={showSettings}
+                onClose={() => setShowSettings(false)}
+                zIndex={getZIndex('settings')}
+                onFocus={() => bringToFront('settings')}
+            >
+                <SettingsPanel config={config} onUpdate={updateConfig} />
+            </DraggablePanel>
+
+            <DraggablePanel 
+                id="research" 
+                title="Research" 
+                initialX={window.innerWidth / 2 - 400} 
+                initialY={100} 
+                width="w-[800px]"
+                height="h-[600px]"
+                visible={showResearch}
+                onClose={() => setShowResearch(false)}
+                zIndex={getZIndex('research')}
+                onFocus={() => bringToFront('research')}
+            >
+                <ResearchPanel />
+            </DraggablePanel>
+
             <ControlBar 
                 isPlaying={appState === 'RUNNING'} 
                 onTogglePlay={handleTogglePlay}
                 onReset={handleReset}
                 speed={speed}
                 onSpeedChange={setSpeed}
-                onOpenSettings={() => setShowSettings(true)}
-                onOpenResearch={() => setShowResearch(true)}
                 onSave={handleSaveSession}
                 onLoad={handleLoadSession}
                 onZoom={handleZoom}
+                
+                showStats={showStats}
+                toggleStats={() => { setShowStats(!showStats); bringToFront('stats'); }}
+                showLeader={showLeader}
+                toggleLeader={() => { setShowLeader(!showLeader); bringToFront('leader'); }}
+                showGenome={showGenome}
+                toggleGenome={() => { setShowGenome(!showGenome); bringToFront('genome'); }}
+                showSettings={showSettings}
+                toggleSettings={() => { setShowSettings(!showSettings); bringToFront('settings'); }}
+                showResearch={showResearch}
+                toggleResearch={() => { setShowResearch(!showResearch); bringToFront('research'); }}
             />
         </>
       )}

@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import React from 'react';
+import { AreaChart, Area, CartesianGrid, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
 import { GenerationStats } from '../types';
-import { Minus, TrendingUp } from 'lucide-react';
 
 interface StatsPanelProps {
   stats: GenerationStats[];
@@ -12,32 +11,9 @@ interface StatsPanelProps {
 }
 
 export const StatsPanel: React.FC<StatsPanelProps> = ({ stats, generation, bestDistance, activeCount, timeRemaining }) => {
-  const [minimized, setMinimized] = useState(false);
-
-  if (minimized) {
-    return (
-        <div 
-            onClick={() => setMinimized(false)}
-            className="absolute top-4 right-4 bg-slate-900/80 backdrop-blur-md p-2 rounded-lg border border-slate-700 shadow-xl cursor-pointer hover:bg-slate-800 transition-colors z-10"
-        >
-            <TrendingUp size={20} className="text-green-500" />
-        </div>
-    );
-  }
-
   return (
-    <div className="absolute top-4 right-4 bg-slate-900/80 backdrop-blur-md p-4 rounded-xl border border-slate-700 w-80 shadow-2xl z-10 text-xs flex flex-col gap-4 animate-in slide-in-from-right fade-in duration-500">
+    <div className="text-xs flex flex-col gap-4">
       <div className="space-y-2">
-        <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            Live Stats
-            </h2>
-            <button onClick={() => setMinimized(true)} className="text-slate-500 hover:text-white">
-                <Minus size={16} />
-            </button>
-        </div>
-        
         <div className="grid grid-cols-2 gap-2 text-slate-300">
             <div className="bg-slate-800 p-2 rounded">
                 <span className="block text-slate-500 text-[10px] uppercase tracking-wider">Generation</span>

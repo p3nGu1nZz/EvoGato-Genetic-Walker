@@ -7,7 +7,7 @@ interface TransitionScreenProps {
 
 export const TransitionScreen: React.FC<TransitionScreenProps> = ({ generation }) => {
   return (
-    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm z-40 flex items-center justify-center animate-in fade-in duration-300">
+    <div className="w-full h-full bg-black/60 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-300">
         <div className="bg-slate-900/90 border border-slate-700 p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-6 max-w-sm w-full mx-4 relative overflow-hidden">
             {/* Background Effect */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent"></div>
