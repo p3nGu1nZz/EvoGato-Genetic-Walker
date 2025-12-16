@@ -16,10 +16,21 @@ export const GenomePanel: React.FC<GenomePanelProps> = ({ population, selectedId
     : population[0];
 
   const getWeightColor = (w: number) => {
-    const normalized = (w + 1) / 2; // 0 to 1
-    const r = Math.floor(normalized * 255);
-    const b = Math.floor((1 - normalized) * 255);
-    return `rgb(${r}, 0, ${b})`;
+    // Clamp magnitude for visualization
+    const abs = Math.min(2, Math.abs(w));
+    // Non-linear intensity curve to make smaller weights visible but distinct from zero
+    // 0 -> 0.1 (dark), 1 -> 0.6 (bright), 2 -> 0.8 (very bright)
+    const intensity = Math.pow(abs / 2, 0.6); 
+    
+    if (w >= 0) {
+        // Positive: Rose/Red spectrum
+        // Hue 340, Saturation 90%, Lightness scales 15% -> 75%
+        return `hsl(340, 90%, ${15 + intensity * 60}%)`;
+    } else {
+        // Negative: Cyan/Blue spectrum
+        // Hue 200, Saturation 90%, Lightness scales 15% -> 75%
+        return `hsl(200, 90%, ${15 + intensity * 60}%)`;
+    }
   };
 
   const getWeightHistoryData = (idx: number) => {
@@ -79,21 +90,36 @@ export const GenomePanel: React.FC<GenomePanelProps> = ({ population, selectedId
       {targetGenome && (
         <>
             {/* Show only first 64 weights for layout sanity */}
-            <div className="grid grid-cols-8 gap-1 p-2 bg-slate-950/50 rounded-lg">
+            <div className="grid grid-cols-8 gap-1 p-2 bg-slate-950/50 rounded-lg border border-slate-800/50">
                 {targetGenome.weights.slice(0, 64).map((w, i) => (
                     <div 
                         key={i} 
                         onMouseEnter={() => setHoveredWeight({index: i, value: w})}
                         onMouseLeave={() => setHoveredWeight(null)}
-                        className="w-full pt-[100%] rounded-sm relative cursor-crosshair hover:ring-2 ring-white z-10 transition-shadow"
+                        className="w-full pt-[100%] rounded-sm relative cursor-crosshair hover:ring-2 ring-white z-10 transition-all duration-300 hover:scale-110 shadow-sm"
                         style={{ backgroundColor: getWeightColor(w) }}
                     >
                     </div>
                 ))}
             </div>
-            <div className="text-[10px] text-slate-500 font-mono text-center flex justify-between px-2">
+            <div className="text-[10px] text-slate-500 font-mono text-center flex justify-between px-2 mt-1">
                 <span>ID: {targetGenome.id}</span>
                 <span>FIT: {targetGenome.fitness.toFixed(0)}</span>
+            </div>
+            {/* Legend */}
+            <div className="flex justify-between px-2 mt-1">
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-[hsl(200,90%,50%)]"></div>
+                    <span className="text-[9px] text-slate-500">Negative</span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-slate-800"></div>
+                    <span className="text-[9px] text-slate-500">Zero</span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-slate-500">Positive</span>
+                    <div className="w-2 h-2 rounded-full bg-[hsl(340,90%,50%)]"></div>
+                </div>
             </div>
         </>
       )}
